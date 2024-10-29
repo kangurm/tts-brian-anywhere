@@ -14,21 +14,40 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       return;
     }
 
-    fetchBrian(info.selectionText, tab.id);
+    try {
+      // Inject the content script, then call `fetchBrian`
+      chrome.scripting.executeScript(
+        {
+          target: { tabId: tab.id },
+          files: ["content.js"]
+        },
+        () => fetchBrian(info.selectionText, tab.id)
+      );
+    } catch (err) {
+      console.error("Error fetching audio:", err);
+    }
   }
 });
 
 async function fetchBrian(text, tabId) {
-  let response = await fetch('https://api.streamelements.com/kappa/v2/speech?voice=Brian&text=' + encodeURIComponent(text.trim()));
+  try {
+    let response = await fetch(
+      'https://api.streamelements.com/kappa/v2/speech?voice=Brian&text=' + encodeURIComponent(text.trim())
+    );
 
-  if (response.status !== 200) {
-    alert(await response.text());
-    return;
+    if (response.status !== 200) {
+      alert(await response.text());
+      return;
+    }
+
+    let mp3Blob = await response.blob();
+    let reader = new FileReader();
+    reader.onloadend = () => {
+      let base64Audio = reader.result.split(',')[1];
+      chrome.tabs.sendMessage(tabId, { type: "playAudio", audioData: base64Audio });
+    };
+    reader.readAsDataURL(mp3Blob);
+  } catch (err) {
+    console.error("Failed to play sound:", err);
   }
-
-  let mp3 = await response.blob();
-  let blobUrl = URL.createObjectURL(mp3);
-
-  // Send a message to the content script with the blob URL
-  chrome.tabs.sendMessage(tabId, { type: "playAudio", url: blobUrl });
 }

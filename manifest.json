@@ -6,7 +6,8 @@
   "permissions": [
     "contextMenus",
     "activeTab",
-    "clipboardRead"
+    "clipboardRead",
+    "scripting"
   ],
   "background": {
     "service_worker": "background.js"
